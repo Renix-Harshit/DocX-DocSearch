@@ -140,6 +140,13 @@ Run the following command to start the Streamlit app:
 ```bash
 streamlit run app.py
 ```
+### Start the Streamlit Application Main.py Advanced Document Search System with FAISS i.e vector DB
+
+Run the following command to start the Streamlit app:
+
+```bash
+streamlit run Main.py
+```
 
 ### Access the Web Interface
 
