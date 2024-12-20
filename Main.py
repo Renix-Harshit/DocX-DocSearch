@@ -92,18 +92,40 @@ class DocumentProcessor:
         D, I = index.search(np.array(query_vector).astype('float32'), k)
         
         results = []
-        seen_docs = set()
         
-        for idx in I[0]:
+        for distance, idx in zip(D[0], I[0]):
             doc_idx = chunk_to_doc_map[idx]
-            if doc_idx not in seen_docs:  # Avoid duplicate documents 
-                seen_docs.add(doc_idx)
-                results.append({
-                    'document_index': doc_idx,
-                    'relevant_passages': [chunks[idx]]
-                })
+            results.append({
+                'document_index': doc_idx,
+                'relevant_passage': chunks[idx],
+                 'distance': distance
+            })
         
-        return results
+        #Sort results by distance (lower distance is better)
+        results.sort(key=lambda x: x['distance'])
+        
+        #Group chunks by document
+        grouped_results = {}
+        for res in results:
+            if res['document_index'] not in grouped_results:
+                grouped_results[res['document_index']] = {
+                   'relevant_passages': [],
+                   'distance' : res['distance']
+                   
+                }
+            grouped_results[res['document_index']]['relevant_passages'].append(res['relevant_passage'])
+        
+        # Convert grouped results back to list of dictionaries format
+        final_results = []
+        for doc_idx, data in grouped_results.items():
+            final_results.append({
+                'document_index': doc_idx,
+                'relevant_passages' : data['relevant_passages'],
+                'distance' : data['distance']
+            })
+        
+        return final_results
+
 
     @staticmethod
     def generate_suggestions(text):
@@ -112,12 +134,14 @@ class DocumentProcessor:
 
         try:
             prompt = f"""
-            Generate 5 unique and insightful questions based on the following text. 
-            These questions should cover different aspects and encourage deeper exploration:
+            Based on the following text, generate 5 concise and actionable questions or statements 
+            that focus on key details, such as numbers, names, dates, or locations. 
+
+            Ensure each suggestion is a single line, brief, and easy to understand:
 
             Text: {text[:1000]}
 
-            Format your response as a numbered list of questions.
+            Format your response as a numbered list.
             """
             response = llm.invoke(prompt)
             suggestions = [
@@ -225,7 +249,8 @@ def main():
         if st.session_state.search_results:
             for result in st.session_state.search_results:
                 doc_name = st.session_state.file_details[result['document_index']]['name']
-                st.write(f"**Found relevant information in {doc_name}:**")
+                distance = result['distance']
+                st.write(f"**Found relevant information in {doc_name} with similarity score: {distance:.4f}:**")
                 for passage in result['relevant_passages']:
                     st.write(f"- {passage}")
                 st.download_button(
@@ -248,7 +273,7 @@ def main():
         - AI-powered suggestions
         - Direct document download
         """)
-        st.write("Made with ❤️ by Harshit")
+        st.write("Made with ❤️ by Renix")
 
 if __name__ == "__main__":
     main()
