@@ -116,7 +116,7 @@ def main():
         - AI-powered suggestions
         - Direct document download
         """)
-        st.write("Made with ❤️ by Harshit")
+        st.write("Made with ❤️ by Renix")
 
 if __name__ =="__main__":
     main()
