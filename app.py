@@ -1,150 +1,122 @@
 import streamlit as st
+import os
 from document_processor import DocumentProcessor
+
 def main():
-    st.title("📄 Advanced Document Search System")
-    
-    # Session state for managing documents
+    st.title("📄 Advanced Document Search System with FAISS")
+
+    # Initialize session state
     if 'documents' not in st.session_state:
         st.session_state.documents = []
         st.session_state.file_details = []
-        st.session_state.suggestions = []
-        st.session_state.search_results = None  # Store search results
-        st.session_state.search_query = ""  # Store search query
+        st.session_state.all_suggestions = []
+        st.session_state.search_results = None
+        st.session_state.search_query = ""
+        st.session_state.vector_store = None
+        st.session_state.chunks = None
+        st.session_state.chunk_map = None
+        st.session_state.doc_processor = DocumentProcessor()
+        st.session_state.custom_search_active = False
 
-    # File Upload
     uploaded_files = st.file_uploader(
-        "Upload up to 3 Documents (PDF, DOCX, XLSX, PNG, JPG)", 
-        type=["pdf", "docx", "xlsx", "png", "jpg"], 
+        "Upload up to 3 Documents (PDF, DOCX, XLSX, PNG, JPG)",
+        type=["pdf", "docx", "xlsx", "png", "jpg"],
         accept_multiple_files=True
     )
-    
-    # Process uploaded files
+
     if uploaded_files:
-        # Limit to 3 documents
         uploaded_files = uploaded_files[:3]
-        
-        # Reset existing documents
-        st.session_state.documents.clear()
-        st.session_state.file_details.clear()
-        st.session_state.suggestions.clear()
-        
-        # Process each document
-        for file in uploaded_files:
-            # Extract text
-            doc_text = DocumentProcessor.extract_text(file)
-            
-            # Store document details
-            st.session_state.documents.append(doc_text)
-            st.session_state.file_details.append({
-                'name': file.name,
-                'file': file
-            })
-            
-            # Generate suggestions
-            suggestions = DocumentProcessor.generate_suggestions(doc_text)
-            st.session_state.suggestions.append(suggestions)
-    
-    # Suggestions and Search Section
+
+        with st.spinner("Processing documents and creating vector store..."):
+            st.session_state.documents.clear()
+            st.session_state.file_details.clear()
+            st.session_state.all_suggestions.clear()
+
+            for file in uploaded_files:
+                doc_text = DocumentProcessor.extract_text(file)
+                st.session_state.documents.append(doc_text)
+                st.session_state.file_details.append({
+                    'name': file.name,
+                    'file': file
+                })
+                suggestions = DocumentProcessor.generate_suggestions(doc_text)
+                st.session_state.all_suggestions.extend(suggestions)
+
+            # V1-vector store
+            st.session_state.vector_store, st.session_state.chunks, st.session_state.chunk_map = (
+                st.session_state.doc_processor.create_vector_store(st.session_state.documents)
+            )
     if st.session_state.documents:
         st.header("📋 Document Suggestions")
-        
-        # Display suggestions for each document
-        suggestion_columns = st.columns(len(st.session_state.documents))
-        
-        for i, (suggestions, doc_detail) in enumerate(zip(st.session_state.suggestions, st.session_state.file_details)):
-            with suggestion_columns[i]:
-                st.subheader(f"Doc {i+1}: {doc_detail['name']}")
-                
-                # Clickable suggestions
-                for suggestion in suggestions:
-                    if st.button(suggestion, key=f"sug_{i}_{suggestion}"):
-                        # Update search query from suggestion
-                        st.session_state.search_query = suggestion
-                        st.session_state.search_scope = "All Documents"
-                        search_documents(st.session_state.search_query, st.session_state.search_scope)
+        suggestion_options = ["Select a suggestion..."] + st.session_state.all_suggestions
 
-        # Custom Search Section
-        st.header("🔍 Custom Search")
+        def suggestion_selected():
+            if st.session_state.selected_suggestion != "Select a suggestion...":
+                st.session_state.search_query = st.session_state.selected_suggestion
+                st.session_state.search_results = st.session_state.doc_processor.semantic_search(
+                    st.session_state.search_query,
+                    st.session_state.vector_store,
+                    st.session_state.chunks,
+                    st.session_state.chunk_map
+                )
 
-        # Search input with Enter key support
-        search_query = st.text_input(
-            "Enter your search query:", 
-            value=st.session_state.search_query, 
-            on_change=lambda: search_documents(
-                st.session_state.search_query, 
-                st.session_state.search_scope
-            )
+        selected_suggestion = st.selectbox(
+            "Quick Search Suggestions",
+            options=suggestion_options,
+            key="selected_suggestion",
+            on_change=suggestion_selected
         )
-        
-        # Update query in session state
-        st.session_state.search_query = search_query
 
-        # Search scope selection
-        search_scope = st.radio(
-        "Search Scope", 
-        ["All Documents", "Document 1", "Document 2", "Document 3"], 
-        key="search_scope")
+        if st.button("Custom Search"):
+            st.session_state.custom_search_active = True
 
-        # Update session state only if the value changes
-        if 'search_scope' not in st.session_state or st.session_state.search_scope != search_scope:
-            st.session_state.search_scope = search_scope
-                
-        # Search button
-        if st.button("Search"):
-            search_documents(st.session_state.search_query, st.session_state.search_scope)
-        
-        # Display search results below the search button
+        if st.session_state.custom_search_active:
+            custom_query = st.text_input("Enter your custom query:", key="custom_search_input")
+
+            if st.button("Search"):
+                st.session_state.search_query = custom_query
+                st.session_state.search_results = st.session_state.doc_processor.semantic_search(
+                    st.session_state.search_query,
+                    st.session_state.vector_store,
+                    st.session_state.chunks,
+                    st.session_state.chunk_map
+                )
+
         st.header("Search Results")
         if st.session_state.search_results:
             for result in st.session_state.search_results:
-                # Passages
-                for passage in result['relevant_passages']:
-                    st.write(passage)
-                
-                # Download button
+                doc_name = st.session_state.file_details[result['document_index']]['name']
+                distance = result['distance']
+                st.write(f"**Document: {doc_name}**")
+                st.write(f"Similarity Score: {distance:.4f}")
+                for qa in result['questions_answers']:
+                    st.write(f"**Question:** {qa['question']}")
+                    st.write(f"**Answer:** {qa['answer']}")
+
                 st.download_button(
-                    label="Download Document", 
+                    label=f"Download {doc_name}",
                     data=st.session_state.file_details[result['document_index']]['file'].getvalue(),
-                    file_name=st.session_state.file_details[result['document_index']]['name']
+                    file_name=doc_name,
+                    key=f"download_{doc_name}" #unique key for each download button
                 )
+
+                st.markdown("---") # Separator between search results
         else:
             st.write("No search results to display.")
     else:
         st.warning("No documents uploaded yet.")
-    
-    # Sidebar
+
     with st.sidebar:
         st.title("📚 Document Search Features")
         st.markdown("""
         ## Capabilities:
         - Upload PDF, DOCX, XLSX, PNG, JPG
         - Automatic text extraction
-        - Keyword suggestions
-        - Flexible document search
+        - FAISS vector database for semantic search
+        - AI-powered suggestions
         - Direct document download
         """)
         st.write("Made with ❤️ by Harshit")
 
-# Helper function for performing search
-def search_documents(query, scope):
-    """
-    Perform search based on query and scope
-    """
-    if not query:
-        st.warning("Please enter a search query")
-        return
-    
-    # Determine search scope
-    if scope == "All Documents":
-        search_docs = st.session_state.documents
-    else:
-        # Map radio selection to document index
-        doc_index = int(scope.split()[-1]) - 1
-        search_docs = [st.session_state.documents[doc_index]]
-    
-    # Perform search
-    search_results = DocumentProcessor.advanced_search(search_docs, query)
-    st.session_state.search_results = search_results    
-
-if __name__ == "__main__":
+if __name__ =="__main__":
     main()
