@@ -16,7 +16,7 @@ import torch
 from sentence_transformers import SentenceTransformer
 
 # Configuration for Tesseract path
-# Use environment variable for flexibility across different systems :)
+
 TESSERACT_PATH = os.getenv('TESSERACT_PATH', r"C:\Program Files\Tesseract-OCR\tesseract.exe")
 pytesseract.pytesseract.tesseract_cmd = TESSERACT_PATH
 
@@ -60,7 +60,6 @@ class DocumentProcessor:
             
     def preprocess_text(self, text: str) -> List[str]:
         """Split text into chunks for vectorization."""
-        # Remove leading/trailing whitespaces and replace multiple spaces with a single space :)
         text = ' '.join(text.split())
         sentences = re.split(r'(?<=[.!?])\s+', text)
         chunks = []
