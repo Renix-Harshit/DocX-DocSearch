@@ -3,7 +3,7 @@ import os
 from document_processor import DocumentProcessor
 
 def main():
-    st.title("📄 Advanced Document Search System with FAISS")
+    st.title("🔍 Smart Document Search")
 
     # Initialize session state
     if 'documents' not in st.session_state:
@@ -19,7 +19,7 @@ def main():
         st.session_state.custom_search_active = False
 
     uploaded_files = st.file_uploader(
-        "Upload up to 3 Documents (PDF, DOCX, XLSX, PNG, JPG)",
+        "📤 Upload up to 3 Documents (PDF, DOCX, XLSX, PNG, JPG)",
         type=["pdf", "docx", "xlsx", "png", "jpg"],
         accept_multiple_files=True
     )
@@ -27,7 +27,7 @@ def main():
     if uploaded_files:
         uploaded_files = uploaded_files[:3]
 
-        with st.spinner("Processing documents and creating vector store..."):
+        with st.spinner("🔄 Processing documents..."):
             st.session_state.documents.clear()
             st.session_state.file_details.clear()
             st.session_state.all_suggestions.clear()
@@ -47,7 +47,7 @@ def main():
                 st.session_state.doc_processor.create_vector_store(st.session_state.documents)
             )
     if st.session_state.documents:
-        st.header("📋 Document Suggestions")
+        st.header("🎯 Quick Search")
         suggestion_options = ["Select a suggestion..."] + st.session_state.all_suggestions
 
         def suggestion_selected():
@@ -67,11 +67,11 @@ def main():
             on_change=suggestion_selected
         )
 
-        if st.button("Custom Search"):
+        if st.button("🔍Custom Search"):
             st.session_state.custom_search_active = True
 
         if st.session_state.custom_search_active:
-            custom_query = st.text_input("Enter your custom query:", key="custom_search_input")
+            custom_query = st.text_input("🔎 Enter your custom query:", key="custom_search_input")
 
             if st.button("Search"):
                 st.session_state.search_query = custom_query
@@ -82,7 +82,7 @@ def main():
                     st.session_state.chunk_map
                 )
 
-        st.header("Search Results")
+        st.header("📊 Search Results")
         if st.session_state.search_results:
             for result in st.session_state.search_results:
                 doc_name = st.session_state.file_details[result['document_index']]['name']
@@ -110,13 +110,13 @@ def main():
         st.title("📚 Document Search Features")
         st.markdown("""
         ## Capabilities:
-        - Upload PDF, DOCX, XLSX, PNG, JPG
-        - Automatic text extraction
-        - FAISS vector database for semantic search
-        - AI-powered suggestions
-        - Direct document download
+        - 📁 Multi-format support
+        - 🤖 AI-powered search
+        - 📊 Semantic analysis
+        - ⚡ Real-time results
+        - 📒 FAISS vector database
         """)
-        st.write("Made with ❤️ by Renix")
+        st.write("DocX - Renix Informatics")
 
 if __name__ =="__main__":
     main()
