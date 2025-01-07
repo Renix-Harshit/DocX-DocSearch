@@ -1,3 +1,4 @@
+# document_processor.py
 import os
 from langchain_groq import ChatGroq
 import PyPDF2
@@ -16,7 +17,7 @@ import streamlit as st
 
 
 # Configuration for Tesseract path
-# Use environment variable for flexibility across different systems
+# Use environment variable for flexibility across different systems :)
 TESSERACT_PATH = os.getenv('TESSERACT_PATH', r"C:\Program Files\Tesseract-OCR\tesseract.exe")
 pytesseract.pytesseract.tesseract_cmd = TESSERACT_PATH
 
@@ -134,26 +135,26 @@ class DocumentProcessor:
         #Sort results by distance (lower distance is better)
         results.sort(key=lambda x: x['distance'])
         
-        #Group chunks by document
+        # Group results by document and then group unique questions/answers within that
         grouped_results = {}
         for res in results:
-            if res['document_index'] not in grouped_results:
-                grouped_results[res['document_index']] = {
-                   'questions_answers' : [],
-                   'distance' : res['distance']
-                   
+            doc_idx = res['document_index']
+            if doc_idx not in grouped_results:
+                grouped_results[doc_idx] = {
+                    'questions_answers': {},
+                    'distance': res['distance']
                 }
-            grouped_results[res['document_index']]['questions_answers'].append({
-              'question': res['question'],
-                'answer': res['answer']
-                })
-        
+            
+            if res['question'] not in grouped_results[doc_idx]['questions_answers']:
+                grouped_results[doc_idx]['questions_answers'][res['question']] = res['answer'] # store the answer to specific question, if same question is given with different distance it will overwrite the answer
+           
+
         # Convert grouped results back to list of dictionaries format
         final_results = []
         for doc_idx, data in grouped_results.items():
             final_results.append({
                 'document_index': doc_idx,
-                'questions_answers' : data['questions_answers'],
+                'questions_answers' : [{'question': q, 'answer': a} for q, a in data['questions_answers'].items()],
                 'distance' : data['distance']
             })
         
