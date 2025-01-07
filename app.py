@@ -1,3 +1,4 @@
+# app.py
 import streamlit as st
 import os
 from document_processor import DocumentProcessor
@@ -85,22 +86,27 @@ def main():
         st.header("📊 Search Results")
         if st.session_state.search_results:
             for result in st.session_state.search_results:
-                doc_name = st.session_state.file_details[result['document_index']]['name']
-                distance = result['distance']
-                st.write(f"**Document: {doc_name}**")
-                st.write(f"Similarity Score: {distance:.4f}")
-                for qa in result['questions_answers']:
-                    st.write(f"**Question:** {qa['question']}")
-                    st.write(f"**Answer:** {qa['answer']}")
+                # Check if document index is within the valid range
+                if result['document_index'] < len(st.session_state.file_details):
+                    doc_name = st.session_state.file_details[result['document_index']]['name']
+                    distance = result['distance']
+                    st.write(f"**Document: {doc_name}**")
+                    st.write(f"Similarity Score: {distance:.4f}")
+                    for qa in result['questions_answers']:
+                        st.write(f"**Question:** {qa['question']}")
+                        st.write(f"**Answer:** {qa['answer']}")
+                    # Download button if file exist
+                    if st.session_state.file_details[result['document_index']]['file']:
+                        st.download_button(
+                            label=f"Download {doc_name}",
+                            data=st.session_state.file_details[result['document_index']]['file'].getvalue(),
+                            file_name=doc_name,
+                            key=f"download_{doc_name}" #unique key for each download button
+                        )
 
-                st.download_button(
-                    label=f"Download {doc_name}",
-                    data=st.session_state.file_details[result['document_index']]['file'].getvalue(),
-                    file_name=doc_name,
-                    key=f"download_{doc_name}" #unique key for each download button
-                )
-
-                st.markdown("---") # Separator between search results
+                    st.markdown("---") # Separator between search results
+                else:
+                    st.error(f"Invalid document index: {result['document_index']}. Please check the document processing step.")
         else:
             st.write("No search results to display.")
     else:
@@ -114,7 +120,6 @@ def main():
         - 🤖 AI-powered search
         - 📊 Semantic analysis
         - ⚡ Real-time results
-        - 📒 FAISS vector database
         """)
         st.write("DocX - Renix Informatics")
 
